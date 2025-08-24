@@ -8,7 +8,7 @@ app.use(bodyParser.json());
 
 const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 if (!WEBHOOK_URL) {
-    console.error("ERROR: Bitte Environment Variable DISCORD_WEBHOOK_URL setzen!");
+    console.error("Bitte Environment Variable DISCORD_WEBHOOK_URL setzen!");
     process.exit(1);
 }
 
@@ -25,9 +25,7 @@ function saveData() {
 
 app.post('/execute', async (req, res) => {
     const { name, username, stats } = req.body;
-    if (!name || !username || !stats) {
-        return res.status(400).json({ success: false, message: "Ungültige Daten" });
-    }
+    if (!name || !username || !stats) return res.status(400).json({ success: false });
 
     data.executionCount += 1;
 
