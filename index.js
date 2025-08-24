@@ -43,7 +43,7 @@ app.post('/execute', async (req, res) => {
     const embed = {
         username: "Silence | Public",
         embeds: [{
-            title: `📊 Total Executions: ${data.executionCount}`,
+            title: `📊 Total Script Executions: ${data.executionCount}`,
             description: `**👤 Name:** ${name}\n**ℹ️ Username:** ${username}`,
             color: Math.floor(Math.random() * 0xFFFFFF),
             fields: [
