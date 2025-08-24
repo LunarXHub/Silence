@@ -15,9 +15,15 @@ if (!WEBHOOK_URL) {
 const DATA_FILE = 'counter.json';
 let data = { executionCount: 0, messageId: null };
 
-if (fs.existsSync(DATA_FILE)) {
+const DATA_FILE = 'counter.json';
+let data = { executionCount: 0, messageId: null };
+
+if (!fs.existsSync(DATA_FILE) || fs.readFileSync(DATA_FILE, 'utf8').trim() === "") {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data));
+} else {
     data = fs.readJsonSync(DATA_FILE);
 }
+
 
 function saveData() {
     fs.writeJsonSync(DATA_FILE, data);
