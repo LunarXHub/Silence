@@ -15,25 +15,28 @@ if (!WEBHOOK_URL) {
 const DATA_FILE = 'counter.json';
 let data = { executionCount: 0, messageId: null };
 
-const DATA_FILE = 'counter.json';
-let data = { executionCount: 0, messageId: null };
-
-if (!fs.existsSync(DATA_FILE) || fs.readFileSync(DATA_FILE, 'utf8').trim() === "") {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data));
-} else {
-    data = fs.readJsonSync(DATA_FILE);
-}
-
-
 function saveData() {
     fs.writeJsonSync(DATA_FILE, data);
 }
 
+function loadData() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const fileData = fs.readJsonSync(DATA_FILE);
+            if (fileData && typeof fileData.executionCount === 'number') {
+                data = fileData;
+            }
+        }
+    } catch (err) {
+        console.error("Keine Daten geladen L:", err);
+    }
+}
+
+loadData();
+
 app.post('/execute', async (req, res) => {
     const { name, username, stats } = req.body;
-    if (!name || !username || !stats) {
-        return res.status(400).json({ success: false, message: "Ungültige Daten" });
-    }
+    if (!name || !username || !stats) return res.status(400).json({ success: false });
 
     data.executionCount += 1;
 
@@ -56,7 +59,7 @@ app.post('/execute', async (req, res) => {
 
     try {
         if (data.messageId) {
-            const url = WEBHOOK_URL.replace("/webhooks/", "/webhooks/") + `/messages/${data.messageId}`;
+            const url = `${WEBHOOK_URL.replace("/webhooks/", "/webhooks/")}/messages/${data.messageId}`;
             await axios.patch(url, embed);
         } else {
             const response = await axios.post(WEBHOOK_URL, embed);
@@ -65,7 +68,7 @@ app.post('/execute', async (req, res) => {
         saveData();
         res.json({ success: true, executionCount: data.executionCount });
     } catch (err) {
-        console.error(err);
+        console.error("Discord Fehler braun:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
