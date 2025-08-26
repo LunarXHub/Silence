@@ -6,14 +6,21 @@ const fs = require('fs-extra');
 const app = express();
 app.use(bodyParser.json());
 
-const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-if (!WEBHOOK_URL) {
-    console.error("Penner");
+const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+const VOICE_CHANNEL_ID = process.env.VOICE_CHANNEL_ID;
+
+if (!BOT_TOKEN) {
+    console.error("Missing DISCORD_BOT_TOKEN environment variable");
+    process.exit(1);
+}
+
+if (!VOICE_CHANNEL_ID) {
+    console.error("Missing VOICE_CHANNEL_ID environment variable");
     process.exit(1);
 }
 
 const DATA_FILE = 'counter.json';
-let data = { executionCount: 0, messageId: null };
+let data = { executionCount: 0 };
 
 function saveData() {
     fs.writeJsonSync(DATA_FILE, data);
@@ -28,47 +35,57 @@ function loadData() {
             }
         }
     } catch (err) {
-        console.error("Keine Daten geladen L:", err);
+        console.error("Failed to load data:", err);
+    }
+}
+
+async function updateVoiceChannelTitle() {
+    const newTitle = `[👑] Executions | ${data.executionCount}`;
+    
+    try {
+        await axios.patch(
+            `https://discord.com/api/v10/channels/${VOICE_CHANNEL_ID}`,
+            { name: newTitle },
+            {
+                headers: {
+                    'Authorization': `Bot ${BOT_TOKEN}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        console.log(`Voice channel updated: ${newTitle}`);
+    } catch (err) {
+        console.error("Failed to update voice channel:", err.response?.data || err.message);
     }
 }
 
 loadData();
 
+updateVoiceChannelTitle();
+
 app.post('/execute', async (req, res) => {
     const { name, username, stats } = req.body;
-    if (!name || !username || !stats) return res.status(400).json({ success: false });
-
+    
+    if (!name || !username || !stats) {
+        return res.status(400).json({ success: false, error: "Missing required fields" });
+    }
+    
     data.executionCount += 1;
-
-    const embed = {
-        username: "Silence | Public",
-        embeds: [{
-            title: `📊 Total Script Executions: ${data.executionCount}`,
-            description: `**👤 Name:** ${name}\n**ℹ️ Username:** ${username}`,
-            color: Math.floor(Math.random() * 0xFFFFFF),
-            fields: [
-                { name: "💪 Strength", value: stats.strength.toString(), inline: true },
-                { name: "🛡️ Durability", value: stats.durability.toString(), inline: true },
-                { name: "⚡ Agility", value: stats.agility.toString(), inline: true },
-                { name: "♻️ Rebirths", value: stats.rebirths.toString(), inline: true },
-                { name: "💀 Kills", value: stats.kills.toString(), inline: true },
-                { name: "⚔️ Brawls", value: stats.brawls.toString(), inline: true }
-            ]
-        }]
-    };
-
+    
+    console.log(`Execution by ${name} (${username}) - Total: ${data.executionCount}`);
+    
     try {
-        if (data.messageId) {
-            const url = `${WEBHOOK_URL.replace("/webhooks/", "/webhooks/")}/messages/${data.messageId}`;
-            await axios.patch(url, embed);
-        } else {
-            const response = await axios.post(WEBHOOK_URL, embed);
-            data.messageId = response.data.id;
-        }
+        await updateVoiceChannelTitle();
+        
         saveData();
-        res.json({ success: true, executionCount: data.executionCount });
+        
+        res.json({ 
+            success: true, 
+            executionCount: data.executionCount,
+            player: { name, username, stats }
+        });
     } catch (err) {
-        console.error("Discord Fehler braun:", err);
+        console.error("Error processing execution:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -77,5 +94,17 @@ app.get('/counter', (req, res) => {
     res.json({ executionCount: data.executionCount });
 });
 
+app.get('/', (req, res) => {
+    res.json({ 
+        status: 'running', 
+        executionCount: data.executionCount,
+        channelId: VOICE_CHANNEL_ID 
+    });
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server läuft auf Port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Voice channel ID: ${VOICE_CHANNEL_ID}`);
+    console.log(`Current execution count: ${data.executionCount}`);
+});
